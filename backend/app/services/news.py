@@ -46,6 +46,35 @@ class NewsService:
             )
         return [result for result in results if result["title"]]
 
+    def relevance(self, stock: Stock, item: TrackingItem, result: dict) -> tuple[float, list[str]]:
+        text = self._clean_text(f"{result.get('title', '')} {result.get('summary', '')}").lower()
+        matched: list[str] = []
+        score = 0.0
+
+        for term in self._stock_terms(stock):
+            if term.lower() in text:
+                matched.append(term)
+                if term == stock.company_name:
+                    score = max(score, 0.95)
+                elif term == stock.ticker:
+                    score = max(score, 0.85)
+                else:
+                    score = max(score, 0.75)
+
+        keyword_matches = []
+        for term in self._important_terms(stock, item):
+            if term.lower() in text:
+                keyword_matches.append(term)
+
+        if keyword_matches:
+            matched.extend(keyword_matches)
+            keyword_score = min(0.55, 0.25 + 0.08 * len(keyword_matches))
+            score = max(score, keyword_score)
+            if any(term in matched for term in self._stock_terms(stock)):
+                score = min(1.0, score + min(0.1, 0.02 * len(keyword_matches)))
+
+        return round(score, 2), matched[:8]
+
     def _build_query(self, stock: Stock, item: TrackingItem) -> str:
         pieces = [
             stock.company_name,
@@ -76,6 +105,56 @@ class NewsService:
     def _clean_text(self, value: str) -> str:
         without_tags = re.sub(r"<[^>]+>", " ", value or "")
         return " ".join(unescape(without_tags).split())
+
+    def _stock_terms(self, stock: Stock) -> list[str]:
+        terms = [stock.company_name]
+        if stock.ticker and stock.ticker != stock.company_name:
+            terms.append(stock.ticker)
+        aliases = self._aliases(stock.company_name)
+        for alias in aliases:
+            if alias not in terms:
+                terms.append(alias)
+        return [term for term in terms if len(term.strip()) >= 2]
+
+    def _aliases(self, company_name: str) -> list[str]:
+        aliases = []
+        suffixes = ["테크놀로지", "기술", "화학", "전자", "반도체", "정밀화학", "주식회사", "(주)"]
+        for suffix in suffixes:
+            if company_name.endswith(suffix):
+                alias = company_name[: -len(suffix)].strip()
+                if len(alias) >= 3:
+                    aliases.append(alias)
+        return aliases
+
+    def _important_terms(self, stock: Stock, item: TrackingItem) -> list[str]:
+        text = f"{item.label} {item.query}"
+        tokens = re.findall(r"[A-Za-z가-힣0-9]{2,}", text)
+        stock_terms = {term.lower() for term in self._stock_terms(stock)}
+        stopwords = {
+            "뉴스",
+            "공시",
+            "관련",
+            "변화",
+            "여부",
+            "주식",
+            "stock",
+            "news",
+            "and",
+            "the",
+            "with",
+            "for",
+        }
+        terms = []
+        seen = set()
+        for token in tokens:
+            key = token.lower()
+            if key in seen or key in stopwords or key in stock_terms:
+                continue
+            if token.isdigit():
+                continue
+            terms.append(token)
+            seen.add(key)
+        return terms[:10]
 
     def _parse_date(self, value: str | None) -> datetime | None:
         if not value:

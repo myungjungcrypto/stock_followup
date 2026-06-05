@@ -144,7 +144,13 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   scanStock: (stockId: number) =>
-    request<{ stock_id: number; events_created: number; decisions_created: number; alerts_created: number }>(
+    request<{
+      stock_id: number;
+      events_created: number;
+      decisions_created: number;
+      alerts_created: number;
+      events_skipped: number;
+    }>(
       `/api/stocks/${stockId}/scan`,
       { method: "POST" }
     )

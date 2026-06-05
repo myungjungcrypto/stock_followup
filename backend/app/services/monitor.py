@@ -21,11 +21,18 @@ class MonitorService:
     async def scan_stock(self, db: Session, stock_id: int, force: bool = True) -> dict:
         stock = db.get(models.Stock, stock_id)
         if not stock:
-            return {"stock_id": stock_id, "events_created": 0, "decisions_created": 0, "alerts_created": 0}
+            return {
+                "stock_id": stock_id,
+                "events_created": 0,
+                "decisions_created": 0,
+                "alerts_created": 0,
+                "events_skipped": 0,
+            }
 
         events_created = 0
         decisions_created = 0
         alerts_created = 0
+        events_skipped = 0
 
         items = [item for item in stock.tracking_items if item.enabled]
         if not items:
@@ -56,6 +63,12 @@ class MonitorService:
             for result in results:
                 if result.get("url") and self._event_exists(db, result["url"]):
                     continue
+                relevance_score, relevance_terms = self.news.relevance(stock, item, result)
+                if relevance_score < self.news.settings.news_min_relevance_score:
+                    events_skipped += 1
+                    continue
+                raw_payload = result.get("raw_payload") or {}
+                raw_payload["relevance_terms"] = relevance_terms
                 event = models.Event(
                     stock_id=stock.id,
                     tracking_item_id=item.id,
@@ -64,8 +77,8 @@ class MonitorService:
                     url=result.get("url"),
                     source=result.get("source", "news"),
                     published_at=result.get("published_at"),
-                    raw_payload=result.get("raw_payload"),
-                    relevance_score=0.7,
+                    raw_payload=raw_payload,
+                    relevance_score=relevance_score,
                 )
                 db.add(event)
                 db.commit()
@@ -109,6 +122,7 @@ class MonitorService:
             "events_created": events_created,
             "decisions_created": decisions_created,
             "alerts_created": alerts_created,
+            "events_skipped": events_skipped,
         }
 
     def due_stock_ids(self, db: Session) -> list[int]:

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str | None = None
 
     news_max_items_per_tracking_item: int = Field(default=5, ge=1, le=20)
+    news_min_relevance_score: float = Field(default=0.6, ge=0.0, le=1.0)
     scheduler_enabled: bool = True
     scheduler_interval_seconds: int = Field(default=300, ge=30)
     default_check_interval_minutes: int = Field(default=180, ge=15)
@@ -27,4 +28,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

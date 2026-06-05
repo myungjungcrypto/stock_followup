@@ -136,4 +136,4 @@ class ScanResult(BaseModel):
     events_created: int
     decisions_created: int
     alerts_created: int
-
+    events_skipped: int = 0

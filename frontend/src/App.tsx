@@ -146,7 +146,7 @@ function App() {
       await loadStocks();
       setSelectedId(selected.id);
       setNotice(
-        `스캔 완료: 새 이벤트 ${result.events_created}개, 판단 ${result.decisions_created}개, 알림 ${result.alerts_created}개`
+        `스캔 완료: 새 이벤트 ${result.events_created}개, 판단 ${result.decisions_created}개, 알림 ${result.alerts_created}개, 제외 ${result.events_skipped}개`
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "스캔에 실패했습니다.");
@@ -482,6 +482,7 @@ function App() {
                             {event.published_at ? ` · ${formatDate(event.published_at)}` : ""}
                           </small>
                         </div>
+                        <span className="score">{Math.round(event.relevance_score * 100)}%</span>
                         {event.url && (
                           <a className="icon-link" href={event.url} target="_blank" rel="noreferrer" title="원문 열기">
                             <ExternalLink size={17} />

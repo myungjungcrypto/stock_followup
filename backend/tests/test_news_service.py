@@ -27,3 +27,33 @@ def test_clean_text_removes_html_and_entities():
     cleaned = service._clean_text("이엔에프 <b>증가</b> &nbsp;&amp; 개선")
 
     assert cleaned == "이엔에프 증가 & 개선"
+
+
+def test_relevance_accepts_company_alias():
+    service = NewsService()
+    stock = Stock(ticker="이엔에프테크놀로지", company_name="이엔에프테크놀로지", market="한국")
+    item = TrackingItem(label="미국 현지 공급망", query="이엔에프테크놀로지 미국 공급망", stock_id=1)
+
+    score, terms = service.relevance(
+        stock,
+        item,
+        {"title": "이엔에프, 삼성전자 美 공장에 반도체 소재 공급", "summary": ""},
+    )
+
+    assert score >= 0.6
+    assert "이엔에프" in terms
+
+
+def test_relevance_rejects_other_stock_news_with_sector_terms():
+    service = NewsService()
+    stock = Stock(ticker="이엔에프테크놀로지", company_name="이엔에프테크놀로지", market="한국")
+    item = TrackingItem(label="반도체·디스플레이 소재 업황", query="이엔에프테크놀로지 반도체 소재 업황", stock_id=1)
+
+    score, terms = service.relevance(
+        stock,
+        item,
+        {"title": "원익QnC, 반도체 소재 업황 수혜 기대", "summary": ""},
+    )
+
+    assert score < 0.6
+    assert "이엔에프테크놀로지" not in terms
