@@ -46,8 +46,15 @@ def list_stocks(db: Session = Depends(get_db)):
 
 
 @app.post("/api/stocks", response_model=schemas.StockRead, status_code=status.HTTP_201_CREATED)
-def create_stock(payload: schemas.StockCreate, db: Session = Depends(get_db)):
-    return crud.create_stock(db, payload)
+async def create_stock(payload: schemas.StockCreate, db: Session = Depends(get_db)):
+    stock = crud.create_stock(db, payload)
+    if payload.thesis.strip():
+        extracted = await ai.extract_tracking_items(stock, payload.thesis)
+        add_tracking_items(db, stock.id, extracted)
+        refreshed = crud.get_stock_or_none(db, stock.id)
+        if refreshed:
+            return refreshed
+    return stock
 
 
 @app.get("/api/stocks/{stock_id}", response_model=schemas.StockRead)
@@ -93,18 +100,7 @@ async def add_note(stock_id: int, payload: schemas.NoteCreate, db: Session = Dep
     db.commit()
 
     extracted = await ai.extract_tracking_items(stock, payload.content)
-    for item in extracted:
-        db.add(
-            models.TrackingItem(
-                stock_id=stock.id,
-                label=item["label"],
-                rationale=item["rationale"],
-                query=item["query"],
-                priority=item["priority"],
-                cadence_minutes=item["cadence_minutes"],
-            )
-        )
-    db.commit()
+    add_tracking_items(db, stock.id, extracted)
     refreshed = crud.get_stock_or_none(db, stock.id)
     if not refreshed:
         raise HTTPException(status_code=404, detail="Stock not found")
@@ -131,3 +127,17 @@ async def scan_stock(stock_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Stock not found")
     return await monitor.scan_stock(db, stock_id)
 
+
+def add_tracking_items(db: Session, stock_id: int, extracted: list[dict]) -> None:
+    for item in extracted:
+        db.add(
+            models.TrackingItem(
+                stock_id=stock_id,
+                label=item["label"],
+                rationale=item["rationale"],
+                query=item["query"],
+                priority=item["priority"],
+                cadence_minutes=item["cadence_minutes"],
+            )
+        )
+    db.commit()

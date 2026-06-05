@@ -140,9 +140,12 @@ Event:
 
     def _extract_fallback(self, stock: Stock, note_content: str) -> list[dict]:
         candidates = []
+        candidates.extend(self._domain_tracking_candidates(stock, note_content))
         lines = [line.strip("-* 	") for line in note_content.splitlines() if line.strip()]
         keywords = self._keywords(note_content)
         for keyword in keywords[:5]:
+            if len(candidates) >= 6:
+                break
             candidates.append(
                 {
                     "label": f"{keyword} 관련 변화",
@@ -176,6 +179,66 @@ Event:
                 }
             )
         return self._normalize_tracking_items(candidates, stock)
+
+    def _domain_tracking_candidates(self, stock: Stock, text: str) -> list[dict]:
+        lowered = text.lower()
+        patterns = [
+            (
+                ["실적", "매출", "영업이익", "영업이익률", "roe"],
+                "분기 실적과 마진 개선 지속 여부",
+                "입력 thesis에서 실적 개선과 수익성이 핵심 근거로 제시됐습니다.",
+                f"{stock.ticker} {stock.company_name} 실적 영업이익 영업이익률",
+                4,
+            ),
+            (
+                ["euv", "arf", "pr", "pag", "모노머", "폴리머"],
+                "EUV/ArF PR 핵심 원료 공급 확대",
+                "선단공정 소재 확장이 re-rating 근거로 제시됐습니다.",
+                f"{stock.ticker} {stock.company_name} EUV ArF PR PAG 모노머 폴리머",
+                4,
+            ),
+            (
+                ["식각액", "디벨로퍼", "불산", "tsv", "패키징"],
+                "식각액·디벨로퍼·패키징 소재 개발 진척",
+                "제품군 확장과 신규 공정 소재 개발이 thesis의 중요한 축입니다.",
+                f"{stock.ticker} {stock.company_name} 식각액 디벨로퍼 TSV 패키징 소재",
+                3,
+            ),
+            (
+                ["텍사스", "미국", "현지", "공급망", "고객사"],
+                "미국 현지 공급망과 고객사 대응",
+                "미국 법인과 현지 공급망 대응은 고객사 확대 여부를 판단하는 단서입니다.",
+                f"{stock.ticker} {stock.company_name} 미국 텍사스 공급망 고객사",
+                3,
+            ),
+            (
+                ["per", "pbr", "roe", "부채비율", "밸류에이션"],
+                "밸류에이션과 재무 안정성 변화",
+                "현재 매력의 일부가 낮은 밸류에이션과 안정적 재무지표에 의존합니다.",
+                f"{stock.ticker} {stock.company_name} PER PBR ROE 부채비율 밸류에이션",
+                3,
+            ),
+            (
+                ["반도체", "디스플레이", "전자재료", "정밀화학"],
+                "반도체·디스플레이 소재 업황",
+                "업황 변화가 매출과 마진에 직접 영향을 줄 수 있습니다.",
+                f"{stock.ticker} {stock.company_name} 반도체 디스플레이 전자재료 소재 업황",
+                3,
+            ),
+        ]
+        candidates = []
+        for needles, label, rationale, query, priority in patterns:
+            if any(needle in lowered for needle in needles):
+                candidates.append(
+                    {
+                        "label": label,
+                        "rationale": rationale,
+                        "query": query,
+                        "priority": priority,
+                        "cadence_minutes": stock.check_interval_minutes or self.settings.default_check_interval_minutes,
+                    }
+                )
+        return candidates
 
     def _evaluate_fallback(
         self, stock: Stock, tracking_item: TrackingItem | None, event: Event
