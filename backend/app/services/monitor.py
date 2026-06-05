@@ -33,7 +33,7 @@ class MonitorService:
                 stock_id=stock.id,
                 label=f"{stock.company_name} 핵심 뉴스",
                 rationale="기본 종목 뉴스 모니터링입니다.",
-                query=f"{stock.ticker} {stock.company_name} stock news",
+                query=self._default_query(stock),
                 priority=2,
                 cadence_minutes=stock.check_interval_minutes,
             )
@@ -138,3 +138,10 @@ class MonitorService:
         if decision.counterpoints:
             parts.extend(["", f"주의: {decision.counterpoints}"])
         return "\n".join(parts)
+
+    def _default_query(self, stock: models.Stock) -> str:
+        if stock.market.strip().lower() in {"kr", "korea", "kospi", "kosdaq", "한국", "대한민국"}:
+            return f"{stock.company_name} 뉴스 공시 실적"
+        if stock.ticker == stock.company_name:
+            return f"{stock.company_name} stock news"
+        return f"{stock.ticker} {stock.company_name} stock news"

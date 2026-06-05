@@ -100,6 +100,15 @@ export type NotePayload = {
   content: string;
 };
 
+export type TrackingItemPayload = {
+  label: string;
+  rationale: string;
+  query: string;
+  priority: number;
+  cadence_minutes: number;
+  enabled: boolean;
+};
+
 const jsonHeaders = { "Content-Type": "application/json" };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -128,10 +137,15 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(payload)
     }),
+  addTrackingItem: (stockId: number, payload: TrackingItemPayload) =>
+    request<Stock>(`/api/stocks/${stockId}/tracking-items`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload)
+    }),
   scanStock: (stockId: number) =>
     request<{ stock_id: number; events_created: number; decisions_created: number; alerts_created: number }>(
       `/api/stocks/${stockId}/scan`,
       { method: "POST" }
     )
 };
-

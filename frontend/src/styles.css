@@ -129,6 +129,7 @@ textarea {
 }
 
 .primary-button,
+.secondary-button,
 .icon-button,
 .icon-link {
   align-items: center;
@@ -148,6 +149,21 @@ textarea {
 }
 
 .primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.secondary-button {
+  background: #eef4f3;
+  border: 1px solid #bfd5d0;
+  border-radius: 6px;
+  color: #1d5f55;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.secondary-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -292,22 +308,45 @@ textarea {
   margin-top: 10px;
 }
 
+.thesis-panel p {
+  color: #4f5f68;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .two-column {
   display: grid;
   gap: 18px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.tracking-form {
+  border-bottom: 1px solid #e1e7eb;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+}
+
+.compact-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
 .tracking-list,
 .decision-list,
-.event-list {
+.event-list,
+.note-list {
   display: grid;
   gap: 10px;
 }
 
 .tracking-item,
 .decision-item,
-.event-item {
+.event-item,
+.note-item {
   align-items: flex-start;
   background: #f9fbfc;
   border: 1px solid #e2e8ec;
@@ -320,12 +359,34 @@ textarea {
 
 .tracking-item p,
 .decision-item p,
-.event-item p {
+.event-item p,
+.note-item p {
   color: #5c6870;
   font-size: 13px;
   line-height: 1.45;
   margin: 5px 0 0;
   overflow-wrap: anywhere;
+}
+
+.tracking-item small,
+.event-item small,
+.note-item small {
+  align-items: center;
+  color: #71808a;
+  display: flex;
+  font-size: 12px;
+  gap: 5px;
+  line-height: 1.45;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.note-item p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  white-space: pre-wrap;
 }
 
 .score {
@@ -401,7 +462,8 @@ textarea {
   }
 
   .form-grid,
-  .metrics {
+  .metrics,
+  .compact-controls {
     grid-template-columns: 1fr;
   }
 
@@ -409,4 +471,3 @@ textarea {
     font-size: 22px;
   }
 }
-

@@ -24,3 +24,13 @@ def test_fallback_flags_negative_event():
     assert decision.action in {"NEGATIVE", "REDUCE_RISK"}
     assert decision.confidence > 0.5
 
+
+def test_fallback_flags_korean_positive_event():
+    stock = Stock(ticker="이엔에프테크놀로지", company_name="이엔에프테크놀로지", thesis="실적 개선과 소재 확장")
+    event = Event(title="이엔에프테크놀로지, 당기순이익 전년 대비 66.8% 증가", summary="", stock_id=1)
+    service = AIService()
+
+    decision = asyncio.run(service.evaluate_event(stock, None, event))
+
+    assert decision.action == "POSITIVE"
+    assert decision.confidence > 0.5

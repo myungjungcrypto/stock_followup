@@ -182,47 +182,48 @@ Event:
 
     def _domain_tracking_candidates(self, stock: Stock, text: str) -> list[dict]:
         lowered = text.lower()
+        stock_query = self._stock_query_prefix(stock)
         patterns = [
             (
                 ["실적", "매출", "영업이익", "영업이익률", "roe"],
                 "분기 실적과 마진 개선 지속 여부",
                 "입력 thesis에서 실적 개선과 수익성이 핵심 근거로 제시됐습니다.",
-                f"{stock.ticker} {stock.company_name} 실적 영업이익 영업이익률",
+                f"{stock_query} 실적 영업이익 영업이익률",
                 4,
             ),
             (
                 ["euv", "arf", "pr", "pag", "모노머", "폴리머"],
                 "EUV/ArF PR 핵심 원료 공급 확대",
                 "선단공정 소재 확장이 re-rating 근거로 제시됐습니다.",
-                f"{stock.ticker} {stock.company_name} EUV ArF PR PAG 모노머 폴리머",
+                f"{stock_query} EUV ArF PR PAG 모노머 폴리머",
                 4,
             ),
             (
                 ["식각액", "디벨로퍼", "불산", "tsv", "패키징"],
                 "식각액·디벨로퍼·패키징 소재 개발 진척",
                 "제품군 확장과 신규 공정 소재 개발이 thesis의 중요한 축입니다.",
-                f"{stock.ticker} {stock.company_name} 식각액 디벨로퍼 TSV 패키징 소재",
+                f"{stock_query} 식각액 디벨로퍼 TSV 패키징 소재",
                 3,
             ),
             (
                 ["텍사스", "미국", "현지", "공급망", "고객사"],
                 "미국 현지 공급망과 고객사 대응",
                 "미국 법인과 현지 공급망 대응은 고객사 확대 여부를 판단하는 단서입니다.",
-                f"{stock.ticker} {stock.company_name} 미국 텍사스 공급망 고객사",
+                f"{stock_query} 미국 텍사스 공급망 고객사",
                 3,
             ),
             (
                 ["per", "pbr", "roe", "부채비율", "밸류에이션"],
                 "밸류에이션과 재무 안정성 변화",
                 "현재 매력의 일부가 낮은 밸류에이션과 안정적 재무지표에 의존합니다.",
-                f"{stock.ticker} {stock.company_name} PER PBR ROE 부채비율 밸류에이션",
+                f"{stock_query} PER PBR ROE 부채비율 밸류에이션",
                 3,
             ),
             (
                 ["반도체", "디스플레이", "전자재료", "정밀화학"],
                 "반도체·디스플레이 소재 업황",
                 "업황 변화가 매출과 마진에 직접 영향을 줄 수 있습니다.",
-                f"{stock.ticker} {stock.company_name} 반도체 디스플레이 전자재료 소재 업황",
+                f"{stock_query} 반도체 디스플레이 전자재료 소재 업황",
                 3,
             ),
         ]
@@ -261,6 +262,15 @@ Event:
             "리콜",
             "지연",
             "실적 부진",
+            "감소",
+            "하락",
+            "적자",
+            "손실",
+            "악화",
+            "둔화",
+            "철회",
+            "중단",
+            "취소",
         ]
         positive = [
             "upgrade",
@@ -276,6 +286,19 @@ Event:
             "호실적",
             "계약",
             "파트너십",
+            "증가",
+            "개선",
+            "수혜",
+            "기대",
+            "확대",
+            "진입",
+            "동력",
+            "성장",
+            "흑자",
+            "최대",
+            "수주",
+            "공급",
+            "개발",
         ]
         if any(word in text for word in negative):
             action = "NEGATIVE" if stock.position_type == "watchlist" else "REDUCE_RISK"
@@ -298,6 +321,11 @@ Event:
             reasoning=f"{stock.ticker} 관련 새 정보가 발견됐지만 방향성은 명확하지 않습니다.",
             counterpoints="정보의 중요도가 낮거나 기존 thesis와 직접 관련이 없을 수 있습니다.",
         )
+
+    def _stock_query_prefix(self, stock: Stock) -> str:
+        if stock.ticker == stock.company_name:
+            return stock.company_name
+        return f"{stock.ticker} {stock.company_name}"
 
     def _normalize_tracking_items(self, items: list[dict], stock: Stock) -> list[dict]:
         normalized = []

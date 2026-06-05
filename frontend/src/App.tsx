@@ -1,6 +1,8 @@
 import {
   Activity,
   Bell,
+  BookOpen,
+  Clock,
   CirclePlus,
   ExternalLink,
   FileText,
@@ -42,6 +44,14 @@ function App() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [stockForm, setStockForm] = useState(initialStock);
   const [noteForm, setNoteForm] = useState({ title: "", url: "", source_type: "memo", content: "" });
+  const [trackingForm, setTrackingForm] = useState({
+    label: "",
+    rationale: "",
+    query: "",
+    priority: 3,
+    cadence_minutes: 180,
+    enabled: true
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -105,6 +115,23 @@ function App() {
       setNotice("메모를 분석해서 팔로우업 항목을 갱신했습니다.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "메모 분석에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function submitTrackingItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updated = await api.addTrackingItem(selected.id, trackingForm);
+      setStocks((current) => current.map((stock) => (stock.id === updated.id ? updated : stock)));
+      setTrackingForm({ label: "", rationale: "", query: "", priority: 3, cadence_minutes: 180, enabled: true });
+      setNotice("수동 팔로우업 항목을 추가했습니다.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "팔로우업 항목을 추가하지 못했습니다.");
     } finally {
       setIsSaving(false);
     }
@@ -265,6 +292,14 @@ function App() {
                 <Metric label="알림" value={selected.alerts.length} />
               </div>
 
+              <section className="panel thesis-panel">
+                <div className="panel-title">
+                  <BookOpen size={18} />
+                  <h2>투자 논리</h2>
+                </div>
+                <p>{selected.thesis || "등록된 투자 논리가 없습니다."}</p>
+              </section>
+
               <div className="two-column">
                 <section className="panel">
                   <div className="panel-title">
@@ -301,6 +336,59 @@ function App() {
                     <Search size={18} />
                     <h2>팔로우업 항목</h2>
                   </div>
+                  <form className="tracking-form" onSubmit={submitTrackingItem}>
+                    <input
+                      value={trackingForm.label}
+                      onChange={(event) => setTrackingForm({ ...trackingForm, label: event.target.value })}
+                      placeholder="직접 추가할 추적 항목"
+                      required
+                    />
+                    <input
+                      value={trackingForm.query}
+                      onChange={(event) => setTrackingForm({ ...trackingForm, query: event.target.value })}
+                      placeholder="검색어"
+                      required
+                    />
+                    <div className="compact-controls">
+                      <label>
+                        우선순위
+                        <input
+                          min="1"
+                          max="5"
+                          type="number"
+                          value={trackingForm.priority}
+                          onChange={(event) =>
+                            setTrackingForm({ ...trackingForm, priority: Number(event.target.value) })
+                          }
+                        />
+                      </label>
+                      <label>
+                        주기
+                        <select
+                          value={trackingForm.cadence_minutes}
+                          onChange={(event) =>
+                            setTrackingForm({ ...trackingForm, cadence_minutes: Number(event.target.value) })
+                          }
+                        >
+                          <option value={60}>1시간</option>
+                          <option value={180}>3시간</option>
+                          <option value={360}>6시간</option>
+                          <option value={720}>12시간</option>
+                          <option value={1440}>1일</option>
+                        </select>
+                      </label>
+                    </div>
+                    <textarea
+                      value={trackingForm.rationale}
+                      onChange={(event) => setTrackingForm({ ...trackingForm, rationale: event.target.value })}
+                      placeholder="왜 중요한지"
+                      rows={3}
+                    />
+                    <button className="secondary-button" disabled={isSaving}>
+                      <CirclePlus size={16} />
+                      항목 추가
+                    </button>
+                  </form>
                   <div className="tracking-list">
                     {selected.tracking_items.length === 0 ? (
                       <div className="empty">메모를 입력하면 자동 생성됩니다.</div>
@@ -310,6 +398,12 @@ function App() {
                           <div>
                             <strong>{item.label}</strong>
                             <p>{item.rationale}</p>
+                            <small>{item.query}</small>
+                            <small>
+                              <Clock size={13} />
+                              {formatCadence(item.cadence_minutes)}
+                              {item.last_checked_at ? ` · 마지막 확인 ${formatDate(item.last_checked_at)}` : ""}
+                            </small>
                           </div>
                           <span className="score">P{item.priority}</span>
                         </article>
@@ -344,6 +438,33 @@ function App() {
 
               <section className="panel">
                 <div className="panel-title">
+                  <FileText size={18} />
+                  <h2>입력 기록</h2>
+                </div>
+                <div className="note-list">
+                  {selected.notes.length === 0 ? (
+                    <div className="empty">아직 저장된 메모가 없습니다.</div>
+                  ) : (
+                    [...selected.notes].reverse().slice(0, 6).map((note) => (
+                      <article key={note.id} className="note-item">
+                        <div>
+                          <strong>{note.title || note.source_type}</strong>
+                          <small>{formatDate(note.created_at)}</small>
+                          <p>{note.content}</p>
+                        </div>
+                        {note.url && (
+                          <a className="icon-link" href={note.url} target="_blank" rel="noreferrer" title="원문 열기">
+                            <ExternalLink size={17} />
+                          </a>
+                        )}
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className="panel">
+                <div className="panel-title">
                   <Bell size={18} />
                   <h2>새 정보</h2>
                 </div>
@@ -355,7 +476,11 @@ function App() {
                       <article key={event.id} className="event-item">
                         <div>
                           <strong>{event.title}</strong>
-                          <p dangerouslySetInnerHTML={{ __html: event.summary }} />
+                          <p>{stripHtml(event.summary)}</p>
+                          <small>
+                            {event.source}
+                            {event.published_at ? ` · ${formatDate(event.published_at)}` : ""}
+                          </small>
                         </div>
                         {event.url && (
                           <a className="icon-link" href={event.url} target="_blank" rel="noreferrer" title="원문 열기">
@@ -382,6 +507,35 @@ function Metric({ label, value }: { label: string; value: number }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function formatCadence(minutes: number) {
+  if (minutes < 60) return `${minutes}분마다`;
+  if (minutes % 1440 === 0) return `${minutes / 1440}일마다`;
+  if (minutes % 60 === 0) return `${minutes / 60}시간마다`;
+  return `${minutes}분마다`;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function stripHtml(value: string) {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export default App;
