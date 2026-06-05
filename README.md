@@ -10,6 +10,8 @@
 - AI 또는 오프라인 fallback으로 팔로우업 항목 자동 추출
 - Google News RSS 기반 수동/주기적 스캔
 - 새 이벤트에 대한 행동 판단 생성
+- 한국 종목의 종목코드/DART 기업고유번호 분리 관리
+- OpenDART 공시 목록 연동
 - 중요 판단에 대한 Telegram 알림 기록 및 발송 시도
 - EC2 배포를 위한 Docker Compose 구성
 
@@ -22,6 +24,7 @@ backend/
     models.py            SQLAlchemy 모델
     services/
       ai.py              추적 항목 추출, 이벤트 판단
+      dart.py            OpenDART 기업고유번호/공시 조회
       news.py            뉴스 RSS 검색
       monitor.py         스캔/판단/알림 오케스트레이션
       telegram.py        텔레그램 발송
@@ -69,6 +72,9 @@ npm run build
 - `OPENAI_MODEL`: 사용할 모델명
 - `TELEGRAM_BOT_TOKEN`: 텔레그램 봇 토큰
 - `TELEGRAM_CHAT_ID`: 알림 받을 채팅 ID
+- `DART_API_KEY`: OpenDART 인증키. 있으면 한국 종목 공시 조회 사용
+- `DART_LOOKBACK_DAYS`: 스캔 시 조회할 DART 공시 기간
+- `DART_MAX_DISCLOSURES_PER_SCAN`: 한 번에 가져올 DART 공시 수
 - `DATABASE_URL`: Docker Compose에서는 Postgres URL 사용
 
 ## EC2 배포 메모
@@ -84,7 +90,7 @@ npm run build
 ## 다음 구현 후보
 
 - 로그인과 사용자별 데이터 분리
-- SEC/전자공시/실적 캘린더 데이터 소스 추가
+- SEC/실적 캘린더 데이터 소스 추가
 - 가격/거래량 이상 감지
 - 추적 항목별 enable/disable 및 민감도 조정
 - 알림 정책 편집 UI

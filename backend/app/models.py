@@ -15,6 +15,8 @@ class Stock(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     ticker: Mapped[str] = mapped_column(String(32), index=True)
+    stock_code: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    dart_corp_code: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     company_name: Mapped[str] = mapped_column(String(255))
     market: Mapped[str] = mapped_column(String(64), default="US")
     status: Mapped[str] = mapped_column(String(32), default="watching")
@@ -119,4 +121,3 @@ class Alert(Base):
 
     stock: Mapped[Stock] = relationship(back_populates="alerts")
     decision: Mapped[Decision | None] = relationship(back_populates="alerts")
-

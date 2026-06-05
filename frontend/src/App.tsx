@@ -6,6 +6,7 @@ import {
   CirclePlus,
   ExternalLink,
   FileText,
+  KeyRound,
   Play,
   RefreshCw,
   Search,
@@ -27,6 +28,8 @@ const actionTone: Record<string, string> = {
 
 const initialStock = {
   ticker: "",
+  stock_code: "",
+  dart_corp_code: "",
   company_name: "",
   market: "US",
   status: "watching",
@@ -39,10 +42,18 @@ const initialStock = {
   stop_loss: null
 };
 
+const initialIdentifierForm = {
+  company_name: "",
+  stock_code: "",
+  dart_corp_code: "",
+  market: ""
+};
+
 function App() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [stockForm, setStockForm] = useState(initialStock);
+  const [identifierForm, setIdentifierForm] = useState(initialIdentifierForm);
   const [noteForm, setNoteForm] = useState({ title: "", url: "", source_type: "memo", content: "" });
   const [trackingForm, setTrackingForm] = useState({
     label: "",
@@ -67,6 +78,23 @@ function App() {
     void loadStocks();
   }, []);
 
+  useEffect(() => {
+    if (!selected) return;
+    setIdentifierForm({
+      company_name: selected.company_name,
+      stock_code: selected.stock_code || (selected.ticker === selected.company_name ? "" : selected.ticker),
+      dart_corp_code: selected.dart_corp_code || "",
+      market: selected.market
+    });
+  }, [
+    selected?.id,
+    selected?.company_name,
+    selected?.stock_code,
+    selected?.ticker,
+    selected?.dart_corp_code,
+    selected?.market
+  ]);
+
   async function loadStocks() {
     setIsLoading(true);
     setError(null);
@@ -88,13 +116,43 @@ function App() {
     setIsSaving(true);
     setError(null);
     try {
-      const created = await api.createStock(stockForm);
+      const stockCode = stockForm.stock_code.trim();
+      const created = await api.createStock({
+        ...stockForm,
+        ticker: stockForm.ticker || stockCode || stockForm.company_name,
+        stock_code: stockCode || null,
+        dart_corp_code: stockForm.dart_corp_code.trim() || null
+      });
       setStocks((current) => [created, ...current]);
       setSelectedId(created.id);
       setStockForm(initialStock);
       setNotice(`${created.ticker} 종목을 추가했습니다.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "종목을 추가하지 못했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function submitIdentifier(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const stockCode = identifierForm.stock_code.trim();
+      const companyName = identifierForm.company_name.trim();
+      const updated = await api.updateStock(selected.id, {
+        company_name: companyName,
+        stock_code: stockCode || null,
+        ticker: stockCode || selected.ticker || companyName,
+        dart_corp_code: identifierForm.dart_corp_code.trim() || null,
+        market: identifierForm.market.trim() || selected.market
+      });
+      setStocks((current) => current.map((stock) => (stock.id === updated.id ? updated : stock)));
+      setNotice("종목 식별자를 저장했습니다.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "식별자를 저장하지 못했습니다.");
     } finally {
       setIsSaving(false);
     }
@@ -146,7 +204,7 @@ function App() {
       await loadStocks();
       setSelectedId(selected.id);
       setNotice(
-        `스캔 완료: 새 이벤트 ${result.events_created}개, 판단 ${result.decisions_created}개, 알림 ${result.alerts_created}개, 제외 ${result.events_skipped}개`
+        `스캔 완료: 새 이벤트 ${result.events_created}개, DART 공시 ${result.dart_disclosures_created}개, 판단 ${result.decisions_created}개, 알림 ${result.alerts_created}개, 제외 ${result.events_skipped}개${result.dart_status ? ` · ${result.dart_status}` : ""}`
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "스캔에 실패했습니다.");
@@ -179,21 +237,30 @@ function App() {
             </div>
             <div className="form-grid">
               <label>
-                티커
-                <input
-                  value={stockForm.ticker}
-                  onChange={(event) => setStockForm({ ...stockForm, ticker: event.target.value })}
-                  placeholder="NVDA"
-                  required
-                />
-              </label>
-              <label>
                 회사명
                 <input
                   value={stockForm.company_name}
                   onChange={(event) => setStockForm({ ...stockForm, company_name: event.target.value })}
-                  placeholder="NVIDIA"
+                  placeholder="NVIDIA / 이엔에프테크놀로지"
                   required
+                />
+              </label>
+              <label>
+                종목코드/티커
+                <input
+                  value={stockForm.stock_code}
+                  onChange={(event) => setStockForm({ ...stockForm, stock_code: event.target.value })}
+                  placeholder="NVDA / 102710"
+                  required
+                />
+              </label>
+              <label>
+                DART corp_code
+                <input
+                  value={stockForm.dart_corp_code}
+                  onChange={(event) => setStockForm({ ...stockForm, dart_corp_code: event.target.value })}
+                  placeholder="선택 입력"
+                  inputMode="numeric"
                 />
               </label>
               <label>
@@ -201,6 +268,8 @@ function App() {
                 <input
                   value={stockForm.market}
                   onChange={(event) => setStockForm({ ...stockForm, market: event.target.value })}
+                  placeholder="US / 한국 / KOSDAQ"
+                  required
                 />
               </label>
               <label>
@@ -250,8 +319,8 @@ function App() {
                       onClick={() => setSelectedId(stock.id)}
                     >
                       <span>
-                        <strong>{stock.ticker}</strong>
-                        <small>{stock.company_name}</small>
+                        <strong>{stock.company_name}</strong>
+                        <small>{displaySymbol(stock)}</small>
                       </span>
                       <span className={`pill ${latest ? actionTone[latest.action] : "neutral"}`}>
                         {latest?.action ?? "NEW"}
@@ -274,9 +343,9 @@ function App() {
             <>
               <div className="detail-header">
                 <div>
-                  <span className="eyebrow">{selected.market}</span>
+                  <span className="eyebrow">{selected.market} · {displaySymbol(selected)}</span>
                   <h2>
-                    {selected.ticker} <small>{selected.company_name}</small>
+                    {selected.company_name} <small>{selected.dart_corp_code ? `DART ${selected.dart_corp_code}` : "DART 미설정"}</small>
                   </h2>
                 </div>
                 <button className="primary-button" onClick={() => void scanSelected()} disabled={isScanning}>
@@ -287,10 +356,60 @@ function App() {
 
               <div className="metrics">
                 <Metric label="추적 항목" value={selected.tracking_items.length} />
-                <Metric label="뉴스 이벤트" value={selected.events.length} />
+                <Metric label="새 정보" value={selected.events.length} />
+                <Metric label="DART" value={selected.dart_corp_code ? "연동" : "미설정"} />
                 <Metric label="판단 기록" value={selected.decisions.length} />
                 <Metric label="알림" value={selected.alerts.length} />
               </div>
+
+              <section className="panel identifier-panel">
+                <div className="panel-title">
+                  <KeyRound size={18} />
+                  <h2>종목 식별자</h2>
+                </div>
+                <form className="identifier-form" onSubmit={submitIdentifier}>
+                  <label>
+                    회사명
+                    <input
+                      value={identifierForm.company_name}
+                      onChange={(event) => setIdentifierForm({ ...identifierForm, company_name: event.target.value })}
+                      required
+                    />
+                  </label>
+                  <label>
+                    종목코드/티커
+                    <input
+                      value={identifierForm.stock_code}
+                      onChange={(event) => setIdentifierForm({ ...identifierForm, stock_code: event.target.value })}
+                      placeholder="NVDA / 102710"
+                      required
+                    />
+                  </label>
+                  <label>
+                    시장
+                    <input
+                      value={identifierForm.market}
+                      onChange={(event) => setIdentifierForm({ ...identifierForm, market: event.target.value })}
+                      required
+                    />
+                  </label>
+                  <label>
+                    DART corp_code
+                    <input
+                      value={identifierForm.dart_corp_code}
+                      onChange={(event) =>
+                        setIdentifierForm({ ...identifierForm, dart_corp_code: event.target.value })
+                      }
+                      placeholder="선택 입력"
+                      inputMode="numeric"
+                    />
+                  </label>
+                  <button className="secondary-button" disabled={isSaving}>
+                    <KeyRound size={16} />
+                    식별자 저장
+                  </button>
+                </form>
+              </section>
 
               <section className="panel thesis-panel">
                 <div className="panel-title">
@@ -478,7 +597,7 @@ function App() {
                           <strong>{event.title}</strong>
                           <p>{stripHtml(event.summary)}</p>
                           <small>
-                            {event.source}
+                            {formatSource(event.source)}
                             {event.published_at ? ` · ${formatDate(event.published_at)}` : ""}
                           </small>
                         </div>
@@ -501,7 +620,7 @@ function App() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="metric">
       <span>{label}</span>
@@ -532,6 +651,16 @@ function sortEventsByDate(events: Stock["events"]) {
 
 function eventTime(event: Stock["events"][number]) {
   return new Date(event.published_at ?? event.created_at).getTime();
+}
+
+function displaySymbol(stock: Stock) {
+  return stock.stock_code || stock.ticker || "코드 미설정";
+}
+
+function formatSource(source: string) {
+  if (source === "opendart") return "DART 공시";
+  if (source.startsWith("google_news_rss")) return "Google News";
+  return source;
 }
 
 function stripHtml(value: string) {

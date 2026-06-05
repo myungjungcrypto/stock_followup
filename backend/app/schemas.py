@@ -4,7 +4,9 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class StockCreate(BaseModel):
-    ticker: str = Field(min_length=1, max_length=32)
+    ticker: str | None = Field(default=None, max_length=32)
+    stock_code: str | None = Field(default=None, max_length=32)
+    dart_corp_code: str | None = Field(default=None, max_length=32)
     company_name: str = Field(min_length=1, max_length=255)
     market: str = "US"
     status: str = "watching"
@@ -18,6 +20,9 @@ class StockCreate(BaseModel):
 
 
 class StockUpdate(BaseModel):
+    ticker: str | None = Field(default=None, max_length=32)
+    stock_code: str | None = Field(default=None, max_length=32)
+    dart_corp_code: str | None = Field(default=None, max_length=32)
     company_name: str | None = None
     market: str | None = None
     status: str | None = None
@@ -112,6 +117,8 @@ class AlertRead(ORMModel):
 class StockRead(ORMModel):
     id: int
     ticker: str
+    stock_code: str | None
+    dart_corp_code: str | None
     company_name: str
     market: str
     status: str
@@ -137,3 +144,5 @@ class ScanResult(BaseModel):
     decisions_created: int
     alerts_created: int
     events_skipped: int = 0
+    dart_disclosures_created: int = 0
+    dart_status: str | None = None

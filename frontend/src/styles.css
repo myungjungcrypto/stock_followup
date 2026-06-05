@@ -284,7 +284,7 @@ textarea {
 .metrics {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .metric {
@@ -303,9 +303,17 @@ textarea {
 
 .metric strong {
   display: block;
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1;
   margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+
+.identifier-form {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 1.3fr) minmax(150px, 1fr) minmax(120px, 0.8fr) minmax(150px, 1fr) auto;
 }
 
 .thesis-panel p {
@@ -462,6 +470,7 @@ textarea {
   }
 
   .form-grid,
+  .identifier-form,
   .metrics,
   .compact-controls {
     grid-template-columns: 1fr;

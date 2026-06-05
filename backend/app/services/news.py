@@ -56,6 +56,8 @@ class NewsService:
                 matched.append(term)
                 if term == stock.company_name:
                     score = max(score, 0.95)
+                elif term == getattr(stock, "stock_code", None):
+                    score = max(score, 0.85)
                 elif term == stock.ticker:
                     score = max(score, 0.85)
                 else:
@@ -78,6 +80,7 @@ class NewsService:
     def _build_query(self, stock: Stock, item: TrackingItem) -> str:
         pieces = [
             stock.company_name,
+            getattr(stock, "stock_code", None),
             "" if stock.ticker == stock.company_name else stock.ticker,
             item.query,
         ]
@@ -108,6 +111,9 @@ class NewsService:
 
     def _stock_terms(self, stock: Stock) -> list[str]:
         terms = [stock.company_name]
+        stock_code = getattr(stock, "stock_code", None)
+        if stock_code and stock_code != stock.company_name:
+            terms.append(stock_code)
         if stock.ticker and stock.ticker != stock.company_name:
             terms.append(stock.ticker)
         aliases = self._aliases(stock.company_name)

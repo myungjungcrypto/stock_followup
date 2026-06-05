@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.services.ai import AIService
+from app.services.dart import DartService
 from app.services.news import NewsService
 from app.services.telegram import TelegramNotifier
 
@@ -15,6 +16,7 @@ IMPORTANT_ACTIONS = {"NEGATIVE", "REDUCE_RISK", "EXIT_CHECK", "POSITIVE", "RESEA
 class MonitorService:
     def __init__(self) -> None:
         self.ai = AIService()
+        self.dart = DartService()
         self.news = NewsService()
         self.telegram = TelegramNotifier()
 
@@ -27,12 +29,16 @@ class MonitorService:
                 "decisions_created": 0,
                 "alerts_created": 0,
                 "events_skipped": 0,
+                "dart_disclosures_created": 0,
+                "dart_status": None,
             }
 
         events_created = 0
         decisions_created = 0
         alerts_created = 0
         events_skipped = 0
+        dart_disclosures_created = 0
+        dart_status = None
 
         items = [item for item in stock.tracking_items if item.enabled]
         if not items:
@@ -48,6 +54,8 @@ class MonitorService:
             db.commit()
             db.refresh(item)
             items = [item]
+
+        should_scan_dart = force or any(self._is_due(item) for item in items)
 
         for item in items:
             if not force and not self._is_due(item):
@@ -117,12 +125,70 @@ class MonitorService:
             db.add(item)
             db.commit()
 
+        if should_scan_dart:
+            dart_result = await self.dart.search_disclosures(stock)
+            dart_status = dart_result.status
+            if dart_result.corp_code and not stock.dart_corp_code:
+                stock.dart_corp_code = dart_result.corp_code
+                db.add(stock)
+                db.commit()
+
+            for result in dart_result.events:
+                if result.get("url") and self._event_exists(db, result["url"]):
+                    continue
+                event = models.Event(
+                    stock_id=stock.id,
+                    tracking_item_id=None,
+                    title=result["title"],
+                    summary=result.get("summary", ""),
+                    url=result.get("url"),
+                    source=result.get("source", "opendart"),
+                    published_at=result.get("published_at"),
+                    raw_payload=result.get("raw_payload") or {},
+                    relevance_score=result.get("relevance_score", 1.0),
+                )
+                db.add(event)
+                db.commit()
+                db.refresh(event)
+                events_created += 1
+                dart_disclosures_created += 1
+
+                draft = await self.ai.evaluate_event(stock, None, event)
+                decision = models.Decision(
+                    stock_id=stock.id,
+                    event_id=event.id,
+                    action=draft.action,
+                    confidence=draft.confidence,
+                    reasoning=draft.reasoning,
+                    counterpoints=draft.counterpoints,
+                )
+                db.add(decision)
+                db.commit()
+                db.refresh(decision)
+                decisions_created += 1
+
+                if decision.action in IMPORTANT_ACTIONS and decision.confidence >= 0.55:
+                    message = self._format_alert(stock, event, decision)
+                    sent, error = await self.telegram.send(message)
+                    alert = models.Alert(
+                        stock_id=stock.id,
+                        decision_id=decision.id,
+                        message=message,
+                        sent=sent,
+                        error=error,
+                    )
+                    db.add(alert)
+                    db.commit()
+                    alerts_created += 1
+
         return {
             "stock_id": stock_id,
             "events_created": events_created,
             "decisions_created": decisions_created,
             "alerts_created": alerts_created,
             "events_skipped": events_skipped,
+            "dart_disclosures_created": dart_disclosures_created,
+            "dart_status": dart_status,
         }
 
     def due_stock_ids(self, db: Session) -> list[int]:
@@ -140,7 +206,7 @@ class MonitorService:
 
     def _format_alert(self, stock: models.Stock, event: models.Event, decision: models.Decision) -> str:
         parts = [
-            f"[{stock.ticker}] {decision.action}",
+            f"[{self._display_symbol(stock)}] {decision.action}",
             f"확신도: {decision.confidence:.0%}",
             "",
             event.title,
@@ -156,6 +222,9 @@ class MonitorService:
     def _default_query(self, stock: models.Stock) -> str:
         if stock.market.strip().lower() in {"kr", "korea", "kospi", "kosdaq", "한국", "대한민국"}:
             return f"{stock.company_name} 뉴스 공시 실적"
-        if stock.ticker == stock.company_name:
+        if self._display_symbol(stock) == stock.company_name:
             return f"{stock.company_name} stock news"
-        return f"{stock.ticker} {stock.company_name} stock news"
+        return f"{self._display_symbol(stock)} {stock.company_name} stock news"
+
+    def _display_symbol(self, stock: models.Stock) -> str:
+        return stock.stock_code or stock.ticker or stock.company_name

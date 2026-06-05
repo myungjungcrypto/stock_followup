@@ -63,6 +63,8 @@ You are an equity follow-up analyst. Extract concrete monitoring items from the 
 
 Stock:
 - Ticker: {stock.ticker}
+- Stock code: {stock.stock_code or "N/A"}
+- DART corp code: {stock.dart_corp_code or "N/A"}
 - Company: {stock.company_name}
 - Current thesis: {stock.thesis or "N/A"}
 
@@ -109,6 +111,8 @@ Allowed actions:
 
 Stock:
 - Ticker: {stock.ticker}
+- Stock code: {stock.stock_code or "N/A"}
+- DART corp code: {stock.dart_corp_code or "N/A"}
 - Company: {stock.company_name}
 - Thesis: {stock.thesis or "N/A"}
 - Position: {stock.position_type}
@@ -150,7 +154,7 @@ Event:
                 {
                     "label": f"{keyword} 관련 변화",
                     "rationale": f"입력 메모에서 '{keyword}'가 중요 신호로 감지됐습니다.",
-                    "query": f"{stock.ticker} {stock.company_name} {keyword}",
+                    "query": f"{self._stock_query_prefix(stock)} {keyword}",
                     "priority": 3,
                     "cadence_minutes": stock.check_interval_minutes,
                 }
@@ -163,7 +167,7 @@ Event:
                 {
                     "label": label,
                     "rationale": "사용자 입력에서 직접 추출한 팔로우업 항목입니다.",
-                    "query": f"{stock.ticker} {label}",
+                    "query": f"{self._stock_query_prefix(stock)} {label}",
                     "priority": 3,
                     "cadence_minutes": stock.check_interval_minutes,
                 }
@@ -173,7 +177,7 @@ Event:
                 {
                     "label": f"{stock.company_name} 핵심 뉴스",
                     "rationale": "기본 종목 뉴스 모니터링입니다.",
-                    "query": f"{stock.ticker} {stock.company_name} stock news",
+                    "query": f"{self._stock_query_prefix(stock)} stock news",
                     "priority": 2,
                     "cadence_minutes": stock.check_interval_minutes,
                 }
@@ -323,9 +327,15 @@ Event:
         )
 
     def _stock_query_prefix(self, stock: Stock) -> str:
-        if stock.ticker == stock.company_name:
-            return stock.company_name
-        return f"{stock.ticker} {stock.company_name}"
+        pieces = [stock.stock_code or stock.ticker, stock.company_name]
+        words = []
+        seen = set()
+        for piece in pieces:
+            key = str(piece or "").strip().lower()
+            if key and key not in seen:
+                words.append(str(piece).strip())
+                seen.add(key)
+        return " ".join(words)
 
     def _normalize_tracking_items(self, items: list[dict], stock: Stock) -> list[dict]:
         normalized = []
@@ -341,7 +351,7 @@ Event:
                 {
                     "label": label[:255],
                     "rationale": str(item.get("rationale", ""))[:2000],
-                    "query": str(item.get("query") or f"{stock.ticker} {label}")[:500],
+                    "query": str(item.get("query") or f"{self._stock_query_prefix(stock)} {label}")[:500],
                     "priority": min(max(int(item.get("priority", 3)), 1), 5),
                     "cadence_minutes": min(max(int(cadence), 15), 10080),
                 }

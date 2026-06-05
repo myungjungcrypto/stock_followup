@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
 from app.config import get_settings
-from app.database import Base, engine, get_db
+from app.database import Base, engine, ensure_schema, get_db
 from app.services.ai import AIService
 from app.services.monitor import MonitorService
 from app.services.scheduler import start_scheduler, stop_scheduler
@@ -20,6 +20,7 @@ monitor = MonitorService()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_schema()
     start_scheduler()
     yield
     stop_scheduler()

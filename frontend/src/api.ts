@@ -60,6 +60,8 @@ export type Alert = {
 export type Stock = {
   id: number;
   ticker: string;
+  stock_code: string | null;
+  dart_corp_code: string | null;
   company_name: string;
   market: string;
   status: string;
@@ -80,7 +82,9 @@ export type Stock = {
 };
 
 export type StockPayload = {
-  ticker: string;
+  ticker?: string | null;
+  stock_code?: string | null;
+  dart_corp_code?: string | null;
   company_name: string;
   market: string;
   status: string;
@@ -131,6 +135,12 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(payload)
     }),
+  updateStock: (stockId: number, payload: Partial<StockPayload>) =>
+    request<Stock>(`/api/stocks/${stockId}`, {
+      method: "PATCH",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload)
+    }),
   addNote: (stockId: number, payload: NotePayload) =>
     request<Stock>(`/api/stocks/${stockId}/notes`, {
       method: "POST",
@@ -150,6 +160,8 @@ export const api = {
       decisions_created: number;
       alerts_created: number;
       events_skipped: number;
+      dart_disclosures_created: number;
+      dart_status: string | null;
     }>(
       `/api/stocks/${stockId}/scan`,
       { method: "POST" }
