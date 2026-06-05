@@ -472,7 +472,7 @@ function App() {
                   {selected.events.length === 0 ? (
                     <div className="empty">스캔 후 새 정보가 여기에 쌓입니다.</div>
                   ) : (
-                    [...selected.events].reverse().slice(0, 12).map((event) => (
+                    sortEventsByDate(selected.events).slice(0, 12).map((event) => (
                       <article key={event.id} className="event-item">
                         <div>
                           <strong>{event.title}</strong>
@@ -524,6 +524,14 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function sortEventsByDate(events: Stock["events"]) {
+  return [...events].sort((left, right) => eventTime(right) - eventTime(left));
+}
+
+function eventTime(event: Stock["events"][number]) {
+  return new Date(event.published_at ?? event.created_at).getTime();
 }
 
 function stripHtml(value: string) {
